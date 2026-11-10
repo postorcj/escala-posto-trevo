@@ -188,6 +188,9 @@ tfoot .lbl{display:flex;align-items:center;justify-content:space-between;gap:6px
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .check{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;}
 .check input{width:16px;height:16px;accent-color:var(--indigo-700);}
+.rh-item{border:1px solid #E3E6EF;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.rh-acoes{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
+#btn-rh b{background:var(--indigo-950,#1b1f3b);color:#fff;border-radius:999px;padding:1px 8px;margin-left:4px;font-size:12px}
 .btn-nuvem{background:#fff;color:var(--indigo-950);display:inline-flex;align-items:center;gap:7px;}
 .btn-nuvem:hover{background:#EEF0FB;}
 .nv-dot{width:9px;height:9px;border-radius:50%;background:#9AA1B5;flex:none;}
@@ -340,6 +343,7 @@ body:not(.travado) .trava{display:none;}
     </div>
     <div class="top-actions">
       <button class="btn btn-nuvem" id="btn-nuvem" title="Salvar na nuvem, publicar e gerenciar acessos"><span class="nv-dot" id="nv-dot"></span><span id="nv-txt">Nuvem: desconectado</span></button>
+      <button class="btn btn-amber" id="btn-rh" hidden title="Funcionários aprovados ou desligados no Painel do RH">Novos do RH <b id="rh-n">0</b></button>
       <button class="btn btn-dark" id="btn-novo">+ Novo funcionário</button>
       <button class="btn btn-dark" id="btn-dash">Dashboard</button>
       <button class="btn btn-dark" id="btn-rel">Relatórios</button>
@@ -1935,6 +1939,7 @@ async function baixarNuvem(){
     nuvem.versao = r.versao; guardarNuvem();
     render();
     statusNuvem('ok', 'atualizado');
+    checarRH(true);
     return 'carregou';
   }
   // nuvem vazia: sobe a escala deste aparelho
@@ -1942,6 +1947,7 @@ async function baixarNuvem(){
   const s = await api('estadoSalvar', { estado: JSON.stringify(state), base: nuvem.versao });
   if(!s.ok) throw new Error(s.erro || 'Não consegui salvar na nuvem.');
   nuvem.versao = s.versao; guardarNuvem(); statusNuvem('ok', 'salvo');
+  checarRH(true);
   return 'enviou';
 }
 
@@ -1975,6 +1981,7 @@ function abrirNuvem(msg, tipo){
       <button class="btn btn-dark" id="nv-acessos">Senhas dos colaboradores</button>
       <button class="btn btn-light" id="nv-recarregar">Recarregar da nuvem</button>
       <button class="btn btn-light" id="nv-senha-admin">Trocar minha senha</button>
+      <button class="btn btn-light" id="nv-rh">Integração com o Painel RH</button>
     </div>
     <div class="modal-actions"><button class="btn btn-danger" id="nv-sair">Sair do painel</button><button class="btn btn-light" id="m-cancelar">Fechar</button></div>`);
 }
@@ -2779,6 +2786,101 @@ document.addEventListener('click', ev=>{
 carregar();
 render();
 medirFixos();
+// ---------- funcionários vindos do Painel do RH ----------
+// Quando o RH aprova, cadastra, reintegra ou desliga alguém, o aviso cai aqui. Você escolhe setor e horário e adiciona com um clique.
+let rhPend = [], rhAvisado = false;
+const normNome = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
+const naEscala = nome => state.employees.find(e=> normNome(e.nome)===normNome(nome));
+const setorDoCargo = c => /caixa/i.test(c||'') ? 'caixas' : 'pista';
+const cargoDaEscala = c => /caixa|frentista|pista|lavador|trocador/i.test(c||'');
+async function checarRH(abrir){
+  if(!nuvem.token) return;
+  try{
+    const r = await api('rhPendentes'); if(!r.ok) return;
+    rhPend = r.pendentes || [];
+    const b = document.getElementById('btn-rh');
+    if(b){ b.hidden = !rhPend.length; document.getElementById('rh-n').textContent = rhPend.length; }
+    if(abrir && rhPend.length && !rhAvisado && !document.body.classList.contains('travado')){ rhAvisado = true; abrirRH(); }
+  }catch(e){}
+}
+function abrirRH(msg){
+  const item = p => {
+    const ja = naEscala(p.nome);
+    const topo = `<div><b>${esc(p.nome)}</b><div style="font-size:12.5px;color:var(--ink-soft)">${esc(p.cargo || 'Sem cargo')}${p.aprendiz ? ' · jovem aprendiz' : ''} · ${p.tipo==='desligado' ? 'desligado' : 'aprovado'} no RH em ${esc(p.quando)}</div></div>`;
+    if(p.tipo==='desligado') return `<div class="rh-item">${topo}
+      ${ja ? `<div class="rh-acoes"><button class="btn btn-danger" data-rhrem="${esc(p.id)}">Remover da escala</button><button class="btn btn-light" data-rhign="${esc(p.id)}">Manter</button></div>`
+           : `<div class="rh-acoes"><span style="font-size:12.5px;color:var(--ink-soft)">Não está na escala.</span><button class="btn btn-light" data-rhok="${esc(p.id)}">Ok</button></div>`}</div>`;
+    if(ja) return `<div class="rh-item">${topo}<div class="rh-acoes"><span style="font-size:12.5px;color:var(--ink-soft)">Já está na escala (${ja.setor==='caixas'?'Caixas':'Pista'}, ${esc(ja.turno)}).</span><button class="btn btn-light" data-rhok="${esc(p.id)}">Ok</button></div></div>`;
+    const st = setorDoCargo(p.cargo);
+    return `<div class="rh-item">${topo}
+      ${cargoDaEscala(p.cargo) ? '' : '<div class="nv-msg" style="margin:6px 0 0;font-size:12.5px">Cargo fora da pista e do caixa: confira se entra na escala.</div>'}
+      <div class="row2" style="margin-top:8px">
+        <div class="field"><label>Setor</label><select data-rhsetor="${esc(p.id)}"><option value="pista"${st==='pista'?' selected':''}>Pista</option><option value="caixas"${st==='caixas'?' selected':''}>Caixas</option></select></div>
+        <div class="field"><label>Horário no 5x2</label><select data-rhturno="${esc(p.id)}">${TURNOS.map(t=>`<option${t==='06:00 às 14:00'?' selected':''}>${esc(t)}</option>`).join('')}</select></div>
+      </div>
+      <div class="rh-acoes"><button class="btn btn-amber" data-rhadd="${esc(p.id)}">Adicionar à escala</button><button class="btn btn-light" data-rhign="${esc(p.id)}">Não entra na escala</button></div></div>`;
+  };
+  modalNuvem(`
+    ${msg ? `<div class="nv-msg ok">${esc(msg)}</div>` : ''}
+    ${rhPend.length ? `<div class="nv-msg">Funcionários aprovados ou desligados no Painel do RH. Escolha o setor e o horário e adicione; depois dá para ajustar tudo em Editar.</div>
+      ${rhPend.map(item).join('')}` : '<div class="nv-msg ok">Nada pendente. Quando o RH aprovar alguém, ele aparece aqui.</div>'}
+    <div class="modal-actions"><span></span><button class="btn btn-light" id="m-cancelar">Fechar</button></div>`, 'Novos do Painel RH');
+}
+async function resolverRH(id, status, msg){
+  const r = await api('rhResolver', { id, status });
+  if(!r.ok && !r.sair) return alert(r.erro || 'Não consegui marcar o aviso.');
+  rhPend = rhPend.filter(p=> p.id!==id);
+  const b = document.getElementById('btn-rh'); if(b){ b.hidden = !rhPend.length; document.getElementById('rh-n').textContent = rhPend.length; }
+  abrirRH(msg);
+}
+async function abrirIntegracaoRH(nova){
+  if(nova && !confirm('Gerar uma chave nova? A chave antiga para de funcionar e você terá de colar a nova no Painel do RH.')) return;
+  const r = await api('rhChave', nova ? { nova:true } : {});
+  if(!r.ok) return alert(r.erro || 'Não consegui pegar a chave.');
+  modalNuvem(`
+    <div class="nv-msg">Com isso, quem for aprovado, cadastrado ou desligado no <b>Painel do RH</b> aparece aqui em <b>Novos do RH</b>, com nome e cargo.</div>
+    <div class="field"><label>1. Endereço da escala</label><input readonly value="${esc(nuvem.url)}" id="rh-url"></div>
+    <button class="btn btn-light" data-copiar="rh-url">Copiar endereço</button>
+    <div class="field"><label>2. Chave da escala</label><input readonly value="${esc(r.chave)}" id="rh-chave"></div>
+    <button class="btn btn-light" data-copiar="rh-chave">Copiar chave</button>
+    <div class="nv-msg">3. No Painel do RH, abra <b>Configurações → Integração com a escala</b>, cole os dois, clique em <b>Salvar</b> e depois em <b>Testar conexão</b>. Não passe a chave para ninguém.</div>
+    <div class="modal-actions"><button class="btn btn-danger" id="nv-rh-nova">Gerar chave nova</button><button class="btn btn-light" id="nv-voltar">Voltar</button></div>`, 'Integração com o Painel RH');
+}
+document.addEventListener('click', async ev=>{
+  const b = ev.target.closest('button'); if(!b) return;
+  try{
+    if(b.id==='btn-rh'){ await checarRH(false); return abrirRH(); }
+    if(b.id==='nv-rh') return abrirIntegracaoRH(false);
+    if(b.id==='nv-rh-nova') return abrirIntegracaoRH(true);
+    if(b.dataset.copiar){ const i = document.getElementById(b.dataset.copiar); i.select(); try{ await navigator.clipboard.writeText(i.value); }catch(e){ document.execCommand('copy'); } b.textContent = 'Copiado!'; return; }
+    const id = b.dataset.rhadd || b.dataset.rhign || b.dataset.rhok || b.dataset.rhrem;
+    if(!id) return;
+    const p = rhPend.find(x=> x.id===id); if(!p) return;
+    b.disabled = true;
+    if(b.dataset.rhadd){
+      if(naEscala(p.nome)) return resolverRH(id, 'feito', p.nome + ' já estava na escala.');
+      const setor = document.querySelector(`[data-rhsetor="${id}"]`).value, turno = document.querySelector(`[data-rhturno="${id}"]`).value;
+      const nid = Math.max(0, ...state.employees.map(x=>x.id)) + 1;
+      state.employees.push({ id:nid, nome:normNome(p.nome), setor, turno, folgaFixa:false, feriasIni:'', feriasFim:'', domingo: grupoMenosUsado(setor, turno, nid), h12:null, intervalos:{} });
+      salvar(); render();
+      return resolverRH(id, 'feito', p.nome + ' entrou na escala (' + (setor==='caixas'?'Caixas':'Pista') + ', ' + turno + ').');
+    }
+    if(b.dataset.rhrem){
+      const e = naEscala(p.nome);
+      if(e){
+        state.employees = state.employees.filter(x=>x.id!==e.id);
+        Object.keys(state.overrides).forEach(k=>{ if(k.startsWith(e.id+'|')) delete state.overrides[k]; });
+        if(state.coberturaNoite && state.coberturaNoite[e.setor]===e.id) state.coberturaNoite[e.setor] = null;
+        if(state.doze && state.doze.manual) delete state.doze.manual[e.id];
+        salvar(); render();
+      }
+      return resolverRH(id, 'feito', p.nome + ' saiu da escala.');
+    }
+    return resolverRH(id, b.dataset.rhign ? 'ignorado' : 'feito');
+  }catch(e){ b.disabled = false; alert(e.message || 'Sem conexão com o servidor.'); }
+});
+setInterval(()=> checarRH(false), 5 * 60000);
+
 // ---------- tela de senha do painel ----------
 const MIN_INATIVO = 30; // trava sozinho depois de 30 minutos sem mexer
 let ultimoUso = Date.now();
