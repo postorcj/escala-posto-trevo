@@ -188,9 +188,6 @@ tfoot .lbl{display:flex;align-items:center;justify-content:space-between;gap:6px
 .row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .check{display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;}
 .check input{width:16px;height:16px;accent-color:var(--indigo-700);}
-.rh-item{border:1px solid #E3E6EF;border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:6px}
-.rh-acoes{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
-#btn-rh b{background:var(--indigo-950,#1b1f3b);color:#fff;border-radius:999px;padding:1px 8px;margin-left:4px;font-size:12px}
 .btn-nuvem{background:#fff;color:var(--indigo-950);display:inline-flex;align-items:center;gap:7px;}
 .btn-nuvem:hover{background:#EEF0FB;}
 .nv-dot{width:9px;height:9px;border-radius:50%;background:#9AA1B5;flex:none;}
@@ -343,7 +340,6 @@ body:not(.travado) .trava{display:none;}
     </div>
     <div class="top-actions">
       <button class="btn btn-nuvem" id="btn-nuvem" title="Salvar na nuvem, publicar e gerenciar acessos"><span class="nv-dot" id="nv-dot"></span><span id="nv-txt">Nuvem: desconectado</span></button>
-      <button class="btn btn-amber" id="btn-rh" hidden title="Funcionários aprovados ou desligados no Painel do RH">Novos do RH <b id="rh-n">0</b></button>
       <button class="btn btn-dark" id="btn-novo">+ Novo funcionário</button>
       <button class="btn btn-dark" id="btn-dash">Dashboard</button>
       <button class="btn btn-dark" id="btn-rel">Relatórios</button>
@@ -423,7 +419,7 @@ body:not(.travado) .trava{display:none;}
       <li>As outras folgas são espalhadas para manter o mesmo número de pessoas em cada período (manhã, tarde e noite).</li>
       <li><b>Pista, rodízio de 4 semanas:</b> a folga anda um dia por semana, sempre em dois dias seguidos: quarta e quinta, quinta e sexta, sexta e sábado, sábado e domingo. Depois de folgar o fim de semana, o frentista trabalha segunda e terça e recomeça na quarta. Cada um folga um domingo a cada 4 semanas (pelo menos um por mês). Os frentistas da manhã e da tarde são divididos em 4 fases, pra cada semana ter gente em todas as etapas.</li>
       <li><b>Intervalos (CLT, art. 71):</b> jornada acima de 6 horas tem de 1 a 2 horas de intervalo (escolha a duração em "Intervalo"); de 4 a 6 horas, 15 minutos. O app sugere o horário de cada um entre 2 horas depois da entrada e 1 hora antes da saída, e quem tem o mesmo horário sai em horas diferentes. Para mudar, clique no nome do funcionário. Nos caixas com uma pessoa só no turno, alguém da pista cobre o intervalo.</li>
-      <li><b>Modelo 12x36</b> (escolha em "Modelo de escala"): cada um trabalha 12 horas por plantão, dia sim, dia não, no turno do dia ou da noite. Com intervalo de 1 hora, o plantão fica com 13 horas no posto (12 trabalhadas); com intervalo indenizado, 12 horas. A turma A e a turma B se revezam, então cada posto precisa de 2 pessoas no dia e 2 na noite. Cada um folga um domingo a cada 2 semanas. Precisa estar previsto em acordo ou convenção coletiva.</li>
+      <li><b>Modelo 12x36</b> (escolha em "Modelo de escala"): cada um fica 12 horas no posto por plantão, dia sim, dia não, no turno do dia ou da noite. Na pista o intervalo de 1 hora fica dentro dessas 12 horas (11 trabalhadas); os caixas fazem 12 horas corridas, sem intervalo. A turma A e a turma B se revezam, então cada posto precisa de 2 pessoas no dia e 2 na noite. Cada um folga um domingo a cada 2 semanas. Precisa estar previsto em acordo ou convenção coletiva.</li>
       <li><b>Pista, modo equilibrado</b> (escolha em "Folgas da pista"): domingo de folga a cada 3 semanas e folgas seguidas em 2 de cada 3 semanas, com a pista mais cheia na sexta e no sábado.</li>
       <li><b>Noite de sábado e domingo:</b> quem tem folga fixa no fim de semana à noite é coberto por um funcionário escolhido em cada setor. Ele trabalha de quarta a sexta no turno dele, faz a noite de sábado e domingo (N) e folga segunda e terça, o que respeita o descanso de 11 horas entre jornadas. Na semana do domingo de folga dele (a cada 3 semanas), ele faz a noite de sexta e sábado e o titular da noite folga sexta e sábado e trabalha o domingo.</li>
       <li><b>Caixas no fim de semana:</b> duas turmas se revezam. A turma da vez trabalha segunda, sexta e sábado no turno dela e faz o plantão de 12 horas do domingo (07:00 às 19:00 e 19:00 às 06:00). A outra turma folga o fim de semana inteiro e a segunda (descanso depois da noite de domingo) e trabalha de terça a sexta. Cada caixa folga um domingo a cada 2 semanas.</li>
@@ -550,17 +546,18 @@ const MINIMOS12_PADRAO = { pista:{ dia:6, noite:1 }, caixas:{ dia:1, noite:1 } }
 function modelo12(){ return state.modelo === '12x36' || state.modelo === '12x36-40'; }
 function modelo40(){ return state.modelo === '12x36-40'; }
 function nomeModelo(m){ m = m || state.modelo; return m === '12x36-40' ? '12x36 · 40h' : m === '12x36' ? '12x36 · 42h' : '5x2'; }
-// Escala de 40h: 11h25 trabalhadas por plantão (3,5 plantões × 11h25 = 39,96h por semana)
+// Escala de 40h: 12h no posto com o intervalo dentro (35 min = 11h25 trabalhadas = 39,96h por semana; 1h = 11h = 38,5h)
 const TRAB40 = 685;
-const CFG40_PADRAO = { pista: 95, caixas: 60 }; // intervalo em minutos: pista 1h35 (13h no posto), caixas 1h (12h25 no posto)
+const CFG40_PADRAO = { pista: 60, caixas: 60 }; // intervalo em minutos, dentro das 12h no posto
 function cfg40(){ return state.cfg40 || (state.cfg40 = { ...CFG40_PADRAO }); }
-// opção de cada setor: número = intervalo com 11h25 trabalhadas; '12h-60' / '12h-35' = 12h no posto com 1h ou 35 min de intervalo
+// opção de cada setor: minutos de intervalo dentro das 12h no posto
 function opc40(setor){
   const v = String(cfg40()[setor] ?? CFG40_PADRAO[setor]);
-  const m = v.match(/^12h-(\d+)$/);
-  if(m){ const int = Number(m[1]) === 35 ? 35 : 60; return { int, span: 720, curto: int < 60 }; }
-  const int = Math.min(120, Math.max(60, Number(v) || CFG40_PADRAO[setor]));
-  return { int, span: TRAB40 + int, curto: false };
+  // 12 horas no posto (entrada + 12h = saída) com o intervalo dentro delas; '12h-35'/'12h-60' são da versão anterior
+  if(semIntervalo12(setor)) return { int: 0, span: 720, curto: false }; // caixas: 12h corridas, intervalo indenizado
+  const n = Number((v.match(/(\d+)$/) || [])[1]) || CFG40_PADRAO[setor];
+  const int = n < 60 ? 35 : Math.min(120, n);
+  return { int, span: 720, curto: int < 60 };
 }
 function intervalo40(setor){ return opc40(setor).int; }
 function trab40(setor){ const o = opc40(setor); return o.span - o.int; }
@@ -588,15 +585,16 @@ function inicios12(setor){
 }
 const minutos = hhmm => { const [h,m] = String(hhmm||'00:00').split(':').map(Number); return (h||0)*60 + (m||0); };
 const hhmm = min => { const x = mod(min, 1440); return String(Math.floor(x/60)).padStart(2,'0') + ':' + String(x%60).padStart(2,'0'); };
-// Jornada do 12x36 na escala: 12 horas trabalhadas + o intervalo (ex.: 13h de permanência com 1h de intervalo).
-// Com intervalo indenizado, a permanência é de 12 horas.
+// Jornada do 12x36 de 42h: 12 horas no posto (entrada + 12h = saída). Na pista o intervalo fica dentro dessas 12h
+// (ex.: 06:00–18:00 com 1h de intervalo = 11h trabalhadas). Os caixas fazem 12h corridas, sem intervalo.
 function intervalo12Min(){ return cfg12().intervaloIndenizado ? 0 : Math.min(120, Math.max(60, Number(state.intervaloMin) || 60)); }
 // Os caixas no 12x36 não têm intervalo: plantão de 12 horas certas
 const CAIXA_SEM_INTERVALO = true;
 // (a noite da pista tem intervalo normalmente; só os caixas trabalham 12h corridas)
-function semIntervalo12(setor, turno){ return !modelo40() && CAIXA_SEM_INTERVALO && setor === 'caixas'; }
+// vale nas duas escalas 12x36 (42h e 40h): nos caixas o intervalo é indenizado
+function semIntervalo12(setor, turno){ return CAIXA_SEM_INTERVALO && setor === 'caixas'; }
 // permanência no posto da escala 12x36 de 42h (usada também para guardar o horário próprio de cada um)
-function span42(setor){ return 720 + ((CAIXA_SEM_INTERVALO && setor === 'caixas') ? 0 : intervalo12Min()); }
+function span42(setor){ return 720; }
 function span12(setor, turno){ return modelo40() ? opc40(setor).span : span42(setor); }
 const faixa = (ini, setor, turno) => ini + ' às ' + hhmm(minutos(ini) + span12(setor, turno));
 // entrada à tarde/noite (15h às 3h) = plantão da noite
@@ -678,7 +676,7 @@ function gerar12(g){
 // No 12x36 vale o horário próprio dele (se tiver) ou o do setor para o turno dele (dia ou noite).
 function horarioDe(e, d12){
   if(modelo12()){
-    // na escala de 40h vale a mesma entrada, e a saída é recalculada (11h25 + intervalo)
+    // na escala de 40h vale a mesma entrada, e a saída é a entrada + 12h
     if(e.h12 && e.h12.ini && e.h12.fim) return modelo40() ? faixa(e.h12.ini, e.setor) : e.h12.ini + ' às ' + e.h12.fim;
     const info = (d12 || distribuicao12())[e.id];
     return horario12(e.setor)[info ? info.turno : 'dia'];
@@ -723,7 +721,7 @@ function intervalosAuto(d12){
 }
 // intervalo de um funcionário no modelo aberto: o escolhido à mão ou o automático
 function intervaloDe(e, d12, autoMap){
-  if(modelo12() && semIntervalo12(e.setor, (d12 || distribuicao12())[e.id] ? (d12 || distribuicao12())[e.id].turno : 'dia')) return { indenizado:true, semIntervalo:true, texto:'Sem intervalo' };
+  if(modelo12() && semIntervalo12(e.setor, (d12 || distribuicao12())[e.id] ? (d12 || distribuicao12())[e.id].turno : 'dia')) return { indenizado:true, semIntervalo:true, texto: modelo40() ? 'Intervalo indenizado' : 'Sem intervalo' };
   if(modelo12() && !modelo40() && cfg12().intervaloIndenizado) return { indenizado:true, texto:'Intervalo indenizado' };
   const manual = e.intervalos && e.intervalos[chaveModelo()];
   if(manual && manual.ini && manual.fim) return { ...manual, auto:false, texto: manual.ini + '-' + manual.fim };
@@ -837,6 +835,17 @@ function aplicarPadroes(){
   // o posto passou a usar a 12x36: abre nela e esconde a 5x2 (dá pra mostrar de novo no painel do 12x36)
   if(state.ocultar5x2 === undefined){ state.ocultar5x2 = true; state.modelo = '12x36'; }
   if(state.ocultar5x2 && !modelo12()) state.modelo = '12x36';
+  // a pista no 12x36 de 42h passou de 13h para 12h no posto (intervalo dentro das 12h):
+  // ajusta uma vez os horários próprios que estavam com a saída calculada pela regra antiga
+  if(!state.mig42h12){
+    state.employees.forEach(e=>{
+      if(e.setor === 'pista' && e.h12 && e.h12.ini && e.h12.fim){
+        const dur = mod(minutos(e.h12.fim) - minutos(e.h12.ini), 1440);
+        if(dur > 720 && dur <= 840) e.h12.fim = hhmm(minutos(e.h12.ini) + 720);
+      }
+    });
+    state.mig42h12 = true;
+  }
 }
 function coberturaPadrao(){
   const out = { pista:null, caixas:null };
@@ -1018,7 +1027,7 @@ function conferir(e, g){
     const trab = dt - pausa;
     const limite = modelo40() ? trab40(e.setor) : 720;
     const hm = m => Math.floor(m/60) + 'h' + (m%60 ? String(m%60).padStart(2,'0') : '');
-    if(trab > limite + 1) avisos.push(`${hm(trab)} trabalhadas no plantão (${h}); ${modelo40() ? 'na escala de 40h o máximo é 11h25 (aumente o intervalo)' : 'o 12x36 é de 12h'}`);
+    if(trab > limite + 1) avisos.push(`${hm(trab)} trabalhadas no plantão (${h}); ${modelo40() ? 'passa do previsto na escala de 40h (aumente o intervalo)' : 'o 12x36 é de 12h'}`);
   }
   let domF = 0, domTotal = 0, domV = 0;
   for(let t = g.first; t <= g.last; t += DAY){
@@ -1128,22 +1137,22 @@ function bloco40(){
   const linha = setor => {
     const o = opc40(setor), t = o.span - o.int, sem = (t * 3.5 / 60).toFixed(2).replace('.', ',');
     const hmi = m => m < 60 ? m + ' min' : hm(m);
+    if(!o.int) return `<b>${setor==='pista' ? 'Pista' : 'Caixas'}:</b> 12h no posto, sem parar (intervalo indenizado) = <b>12h trabalhadas</b> · média de <b>42h por semana</b> <span style="color:#B45309;">⚠ passa do limite de 40h: confirme com o contador antes de usar</span>`;
     return `<b>${setor==='pista' ? 'Pista' : 'Caixas'}:</b> ${hm(o.span)} no posto − ${hmi(o.int)} de intervalo = <b>${hm(t)} trabalhadas</b> · média de <b>${sem}h por semana</b>`
       + (o.curto ? ` <span style="color:#B45309;">⚠ intervalo menor que 1h só vale se a convenção coletiva permitir (mínimo 30 min)</span>` : '');
   };
-  const atual = setor => { const o = opc40(setor); return o.span === 720 ? '12h-' + o.int : String(o.int); };
   const op = (setor, lista) => lista.map(m=>{
-    const v = String(m), rot = v.startsWith('12h-') ? (v === '12h-60' ? '12h · intervalo 1h' : '12h · intervalo 35 min') : hm(m) + ' (11h25 trab.)';
-    return `<option value="${v}" ${atual(setor)===v?'selected':''}>${rot}</option>`;
+    const rot = (m < 60 ? m + ' min (convenção)' : hm(m)) + ' · ' + hm(720 - m) + ' trab.';
+    return `<option value="${m}" ${opc40(setor).int===m?'selected':''}>${rot}</option>`;
   }).join('');
   return `<div class="bloco40">
     <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;font-size:12.5px;">
       <b style="color:var(--indigo-950);">Escala de 40 horas semanais</b>
-      <label>Intervalo da pista <select id="dz40-pista">${op('pista', [95, 105, 120, '12h-60', '12h-35'])}</select></label>
-      <label>Intervalo dos caixas <select id="dz40-caixas">${op('caixas', [60, 75, 95, 120, '12h-60', '12h-35'])}</select></label>
+      <label>Intervalo da pista <select id="dz40-pista">${op('pista', [35, 60, 75, 95, 120])}</select></label>
+      ${semIntervalo12('caixas') ? '<span>Caixas: intervalo indenizado</span>' : `<label>Intervalo dos caixas <select id="dz40-caixas">${op('caixas', [35, 60, 75, 95, 120])}</select></label>`}
     </div>
     <div class="fds">${linha('pista')}<br>${linha('caixas')}</div>
-    <div class="fds">Os horários de entrada, as turmas e quem fica na noite são os mesmos da escala de 42h. Todos passam a ter intervalo de verdade, inclusive os caixas e a noite: com uma pessoa só no turno, alguém precisa cobrir o caixa ou a pista nesse horário.</div>
+    <div class="fds">A saída é sempre a entrada + 12 horas, com o intervalo dentro delas. Os horários de entrada, as turmas e quem fica na noite são os mesmos da escala de 42h. Na pista todos têm intervalo, inclusive a noite: com uma pessoa só no turno, alguém precisa cobrir a pista nesse horário. Os caixas trabalham as 12h corridas, com o intervalo indenizado.</div>
   </div>`;
 }
 
@@ -1195,10 +1204,10 @@ function render12Painel(){
     <div class="fds">${linha('pista')}<br>${linha('caixas')}</div>
     <div class="fds"><b>Em ${nomeMes(ui.mes)}:</b> turma A trabalha nos dias ${diasDaTurma('A', ui.mes)} e turma B nos dias ${diasDaTurma('B', ui.mes)}. Para trocar alguém de turma, clique na etiqueta da turma ao lado do nome. ${(()=>{ const [y,m] = ui.mes.split('-').map(Number); return new Date(Date.UTC(y,m,0)).getUTCDate()===31 ? 'Este mês tem 31 dias: o dia 31 e o dia 1 do mês seguinte são seguidos, então no próximo mês as turmas invertem par e ímpar.' : ''; })()}</div>
     <div class="fds"><b>Caixas:</b> plantão de 12 horas certas, sem intervalo (a saída é calculada 12h depois da entrada).</div>
-    <div class="fds"><b>Jornada da pista (dia e noite):</b> ${intervalo12Min() ? `${String(span12('pista','dia')/60).replace('.', ',')}h no posto com ${intervalo12Min()===60 ? '1h' : String(intervalo12Min()/60).replace('.', ',') + 'h'} de intervalo = <b>12h trabalhadas</b>. Por isso os dois turnos se cruzam ${intervalo12Min()===60 ? '1 hora' : String(intervalo12Min()/60).replace('.', ',') + 'h'} na troca, o que ajuda na passagem do caixa e da pista.` : '12h no posto com intervalo indenizado = 12h trabalhadas.'}</div>
+    <div class="fds"><b>Jornada da pista (dia e noite):</b> ${intervalo12Min() ? `12h no posto (a saída é a entrada + 12h) com ${intervalo12Min()===60 ? '1h' : String(intervalo12Min()/60).replace('.', ',') + 'h'} de intervalo = <b>${Math.floor((720 - intervalo12Min())/60)}h${(720 - intervalo12Min())%60 ? String((720 - intervalo12Min())%60).padStart(2,'0') : ''} trabalhadas</b> · média de ${String(((720 - intervalo12Min()) * 3.5 / 60).toFixed(1)).replace('.', ',')}h por semana.` : '12h no posto com intervalo indenizado = 12h trabalhadas.'}</div>
     <div class="fds">Cada um trabalha 12 horas e descansa no dia seguinte (dia sim, dia não). A turma A trabalha num dia e a B no outro, então cada posto precisa de 2 pessoas no dia e 2 na noite. Vão pra noite os de turno mais tarde; para trocar alguém de turno ou de turma, clique no nome. Cada um folga um domingo a cada 2 semanas.</div>
-    <div class="fds"><b>Intervalo indenizado:</b> o intervalo é pago, sem parar o trabalho (a lei permite no 12x36). Aí o plantão fica com 12 horas no posto.</div>
-    <div class="fds"><b>Antes de adotar:</b> com a EC 141/2026, escala diferente da 5x2 precisa estar em acordo ou convenção coletiva. A média é de 42 horas por semana (cerca de 38,5h se a hora de intervalo for descontada).</div>
+    <div class="fds"><b>Intervalo indenizado:</b> o intervalo é pago, sem parar o trabalho (a lei permite no 12x36). O plantão continua com 12 horas no posto.</div>
+    <div class="fds"><b>Antes de adotar:</b> com a EC 141/2026, escala diferente da 5x2 precisa estar em acordo ou convenção coletiva. Na média, os caixas (12h corridas) fazem 42 horas por semana e a pista (11h trabalhadas + 1h de intervalo) 38,5 horas.</div>
     </details>
     </div>
     </details>
@@ -1404,7 +1413,7 @@ function abrirModal(id){
             : `Em branco, o app escolhe sozinho${intAuto ? ` (hoje: <b>${esc(intAuto.ini)} às ${esc(intAuto.fim)}</b>)` : ''}. Ao escolher o início, o fim é preenchido com a duração padrão.`}
         </div>
         <div class="hint" style="font-size:11.5px;color:var(--ink-soft);margin-top:-6px;line-height:1.45;">
-          Este horário vale para a escala <b>${nomeModelo()}</b>, que está aberta agora.${modelo40() ? ' Na escala de 40h só a entrada conta: a saída é calculada (11h25 trabalhadas + intervalo).' : modelo12() ? ` Ao escolher a entrada, a saída é preenchida sozinha: caixas 12 horas depois (sem intervalo); pista ${String(span12('pista','dia')/60).replace('.', ',')} horas depois (12h trabalhadas${intervalo12Min() ? ' + intervalo' : ''}).` : ''}
+          Este horário vale para a escala <b>${nomeModelo()}</b>, que está aberta agora.${modelo40() ? ' Na escala de 40h só a entrada conta: a saída é a entrada + 12 horas, com o intervalo dentro delas.' : modelo12() ? ` Ao escolher a entrada, a saída é preenchida sozinha 12 horas depois: caixas sem intervalo; pista com ${intervalo12Min() ? '1h de intervalo dentro das 12h (11h trabalhadas)' : 'intervalo indenizado'}.` : ''}
           ${e ? (modelo12() ? `No 5x2 ele continua ${esc(e.turno)}.` : `No 12x36: ${e.h12 ? esc(e.h12.ini + ' às ' + e.h12.fim) : 'horário do setor'}.`) : ''}
         </div>
         <div class="field"><label for="m-domingo">Grupo de domingo</label>
@@ -1819,7 +1828,7 @@ document.addEventListener('change', ev=>{
     return;
   }
   if(el.id==='f-int'){ state.intervaloMin = Number(el.value) || 60; salvar(); render(); return; }
-  if(el.id==='dz40-pista' || el.id==='dz40-caixas'){ cfg40()[el.id.slice(5)] = /^12h-/.test(el.value) ? el.value : Number(el.value); salvar(); render(); return; }
+  if(el.id==='dz40-pista' || el.id==='dz40-caixas'){ cfg40()[el.id.slice(5)] = Number(el.value); salvar(); render(); return; }
   if(el.id==='dz-indenizado'){ cfg12().intervaloIndenizado = el.checked; salvar(); render(); return; }
   if(el.id==='m-atalho' && el.value){
     const [a, b] = partesTurno(el.value);
@@ -1939,7 +1948,6 @@ async function baixarNuvem(){
     nuvem.versao = r.versao; guardarNuvem();
     render();
     statusNuvem('ok', 'atualizado');
-    checarRH(true);
     return 'carregou';
   }
   // nuvem vazia: sobe a escala deste aparelho
@@ -1947,7 +1955,6 @@ async function baixarNuvem(){
   const s = await api('estadoSalvar', { estado: JSON.stringify(state), base: nuvem.versao });
   if(!s.ok) throw new Error(s.erro || 'Não consegui salvar na nuvem.');
   nuvem.versao = s.versao; guardarNuvem(); statusNuvem('ok', 'salvo');
-  checarRH(true);
   return 'enviou';
 }
 
@@ -1981,7 +1988,6 @@ function abrirNuvem(msg, tipo){
       <button class="btn btn-dark" id="nv-acessos">Senhas dos colaboradores</button>
       <button class="btn btn-light" id="nv-recarregar">Recarregar da nuvem</button>
       <button class="btn btn-light" id="nv-senha-admin">Trocar minha senha</button>
-      <button class="btn btn-light" id="nv-rh">Integração com o Painel RH</button>
     </div>
     <div class="modal-actions"><button class="btn btn-danger" id="nv-sair">Sair do painel</button><button class="btn btn-light" id="m-cancelar">Fechar</button></div>`);
 }
@@ -2786,101 +2792,6 @@ document.addEventListener('click', ev=>{
 carregar();
 render();
 medirFixos();
-// ---------- funcionários vindos do Painel do RH ----------
-// Quando o RH aprova, cadastra, reintegra ou desliga alguém, o aviso cai aqui. Você escolhe setor e horário e adiciona com um clique.
-let rhPend = [], rhAvisado = false;
-const normNome = s => String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ').trim();
-const naEscala = nome => state.employees.find(e=> normNome(e.nome)===normNome(nome));
-const setorDoCargo = c => /caixa/i.test(c||'') ? 'caixas' : 'pista';
-const cargoDaEscala = c => /caixa|frentista|pista|lavador|trocador/i.test(c||'');
-async function checarRH(abrir){
-  if(!nuvem.token) return;
-  try{
-    const r = await api('rhPendentes'); if(!r.ok) return;
-    rhPend = r.pendentes || [];
-    const b = document.getElementById('btn-rh');
-    if(b){ b.hidden = !rhPend.length; document.getElementById('rh-n').textContent = rhPend.length; }
-    if(abrir && rhPend.length && !rhAvisado && !document.body.classList.contains('travado')){ rhAvisado = true; abrirRH(); }
-  }catch(e){}
-}
-function abrirRH(msg){
-  const item = p => {
-    const ja = naEscala(p.nome);
-    const topo = `<div><b>${esc(p.nome)}</b><div style="font-size:12.5px;color:var(--ink-soft)">${esc(p.cargo || 'Sem cargo')}${p.aprendiz ? ' · jovem aprendiz' : ''} · ${p.tipo==='desligado' ? 'desligado' : 'aprovado'} no RH em ${esc(p.quando)}</div></div>`;
-    if(p.tipo==='desligado') return `<div class="rh-item">${topo}
-      ${ja ? `<div class="rh-acoes"><button class="btn btn-danger" data-rhrem="${esc(p.id)}">Remover da escala</button><button class="btn btn-light" data-rhign="${esc(p.id)}">Manter</button></div>`
-           : `<div class="rh-acoes"><span style="font-size:12.5px;color:var(--ink-soft)">Não está na escala.</span><button class="btn btn-light" data-rhok="${esc(p.id)}">Ok</button></div>`}</div>`;
-    if(ja) return `<div class="rh-item">${topo}<div class="rh-acoes"><span style="font-size:12.5px;color:var(--ink-soft)">Já está na escala (${ja.setor==='caixas'?'Caixas':'Pista'}, ${esc(ja.turno)}).</span><button class="btn btn-light" data-rhok="${esc(p.id)}">Ok</button></div></div>`;
-    const st = setorDoCargo(p.cargo);
-    return `<div class="rh-item">${topo}
-      ${cargoDaEscala(p.cargo) ? '' : '<div class="nv-msg" style="margin:6px 0 0;font-size:12.5px">Cargo fora da pista e do caixa: confira se entra na escala.</div>'}
-      <div class="row2" style="margin-top:8px">
-        <div class="field"><label>Setor</label><select data-rhsetor="${esc(p.id)}"><option value="pista"${st==='pista'?' selected':''}>Pista</option><option value="caixas"${st==='caixas'?' selected':''}>Caixas</option></select></div>
-        <div class="field"><label>Horário no 5x2</label><select data-rhturno="${esc(p.id)}">${TURNOS.map(t=>`<option${t==='06:00 às 14:00'?' selected':''}>${esc(t)}</option>`).join('')}</select></div>
-      </div>
-      <div class="rh-acoes"><button class="btn btn-amber" data-rhadd="${esc(p.id)}">Adicionar à escala</button><button class="btn btn-light" data-rhign="${esc(p.id)}">Não entra na escala</button></div></div>`;
-  };
-  modalNuvem(`
-    ${msg ? `<div class="nv-msg ok">${esc(msg)}</div>` : ''}
-    ${rhPend.length ? `<div class="nv-msg">Funcionários aprovados ou desligados no Painel do RH. Escolha o setor e o horário e adicione; depois dá para ajustar tudo em Editar.</div>
-      ${rhPend.map(item).join('')}` : '<div class="nv-msg ok">Nada pendente. Quando o RH aprovar alguém, ele aparece aqui.</div>'}
-    <div class="modal-actions"><span></span><button class="btn btn-light" id="m-cancelar">Fechar</button></div>`, 'Novos do Painel RH');
-}
-async function resolverRH(id, status, msg){
-  const r = await api('rhResolver', { id, status });
-  if(!r.ok && !r.sair) return alert(r.erro || 'Não consegui marcar o aviso.');
-  rhPend = rhPend.filter(p=> p.id!==id);
-  const b = document.getElementById('btn-rh'); if(b){ b.hidden = !rhPend.length; document.getElementById('rh-n').textContent = rhPend.length; }
-  abrirRH(msg);
-}
-async function abrirIntegracaoRH(nova){
-  if(nova && !confirm('Gerar uma chave nova? A chave antiga para de funcionar e você terá de colar a nova no Painel do RH.')) return;
-  const r = await api('rhChave', nova ? { nova:true } : {});
-  if(!r.ok) return alert(r.erro || 'Não consegui pegar a chave.');
-  modalNuvem(`
-    <div class="nv-msg">Com isso, quem for aprovado, cadastrado ou desligado no <b>Painel do RH</b> aparece aqui em <b>Novos do RH</b>, com nome e cargo.</div>
-    <div class="field"><label>1. Endereço da escala</label><input readonly value="${esc(nuvem.url)}" id="rh-url"></div>
-    <button class="btn btn-light" data-copiar="rh-url">Copiar endereço</button>
-    <div class="field"><label>2. Chave da escala</label><input readonly value="${esc(r.chave)}" id="rh-chave"></div>
-    <button class="btn btn-light" data-copiar="rh-chave">Copiar chave</button>
-    <div class="nv-msg">3. No Painel do RH, abra <b>Configurações → Integração com a escala</b>, cole os dois, clique em <b>Salvar</b> e depois em <b>Testar conexão</b>. Não passe a chave para ninguém.</div>
-    <div class="modal-actions"><button class="btn btn-danger" id="nv-rh-nova">Gerar chave nova</button><button class="btn btn-light" id="nv-voltar">Voltar</button></div>`, 'Integração com o Painel RH');
-}
-document.addEventListener('click', async ev=>{
-  const b = ev.target.closest('button'); if(!b) return;
-  try{
-    if(b.id==='btn-rh'){ await checarRH(false); return abrirRH(); }
-    if(b.id==='nv-rh') return abrirIntegracaoRH(false);
-    if(b.id==='nv-rh-nova') return abrirIntegracaoRH(true);
-    if(b.dataset.copiar){ const i = document.getElementById(b.dataset.copiar); i.select(); try{ await navigator.clipboard.writeText(i.value); }catch(e){ document.execCommand('copy'); } b.textContent = 'Copiado!'; return; }
-    const id = b.dataset.rhadd || b.dataset.rhign || b.dataset.rhok || b.dataset.rhrem;
-    if(!id) return;
-    const p = rhPend.find(x=> x.id===id); if(!p) return;
-    b.disabled = true;
-    if(b.dataset.rhadd){
-      if(naEscala(p.nome)) return resolverRH(id, 'feito', p.nome + ' já estava na escala.');
-      const setor = document.querySelector(`[data-rhsetor="${id}"]`).value, turno = document.querySelector(`[data-rhturno="${id}"]`).value;
-      const nid = Math.max(0, ...state.employees.map(x=>x.id)) + 1;
-      state.employees.push({ id:nid, nome:normNome(p.nome), setor, turno, folgaFixa:false, feriasIni:'', feriasFim:'', domingo: grupoMenosUsado(setor, turno, nid), h12:null, intervalos:{} });
-      salvar(); render();
-      return resolverRH(id, 'feito', p.nome + ' entrou na escala (' + (setor==='caixas'?'Caixas':'Pista') + ', ' + turno + ').');
-    }
-    if(b.dataset.rhrem){
-      const e = naEscala(p.nome);
-      if(e){
-        state.employees = state.employees.filter(x=>x.id!==e.id);
-        Object.keys(state.overrides).forEach(k=>{ if(k.startsWith(e.id+'|')) delete state.overrides[k]; });
-        if(state.coberturaNoite && state.coberturaNoite[e.setor]===e.id) state.coberturaNoite[e.setor] = null;
-        if(state.doze && state.doze.manual) delete state.doze.manual[e.id];
-        salvar(); render();
-      }
-      return resolverRH(id, 'feito', p.nome + ' saiu da escala.');
-    }
-    return resolverRH(id, b.dataset.rhign ? 'ignorado' : 'feito');
-  }catch(e){ b.disabled = false; alert(e.message || 'Sem conexão com o servidor.'); }
-});
-setInterval(()=> checarRH(false), 5 * 60000);
-
 // ---------- tela de senha do painel ----------
 const MIN_INATIVO = 30; // trava sozinho depois de 30 minutos sem mexer
 let ultimoUso = Date.now();
